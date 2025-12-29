@@ -1,34 +1,43 @@
 pipeline {
     agent any
 
-    tools {
-        nodejs 'node-18'
+    environment {
+        IMAGE_NAME = "simple-node-api"
+        CONTAINER_NAME = "simple-node-api"
+        PORT = "3000"
     }
 
     stages {
-        stage('Checkout') {
+
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                sh 'npm install'
-            }
-        }
-
-        stage('Run App Check') {
-            steps {
-                sh 'node -c server.js'
-            }
-        }
-
-        stage('Deploy') {
+        stage('Build Docker Image') {
             steps {
                 sh '''
-                pm2 delete simple-node-api || true
-                pm2 start server.js --name simple-node-api
+                docker build -t $IMAGE_NAME .
+                '''
+            }
+        }
+
+        stage('Stop Old Container') {
+            steps {
+                sh '''
+                docker rm -f $CONTAINER_NAME || true
+                '''
+            }
+        }
+
+        stage('Run New Container') {
+            steps {
+                sh '''
+                docker run -d \
+                  --name $CONTAINER_NAME \
+                  -p $PORT:$PORT \
+                  $IMAGE_NAME
                 '''
             }
         }
@@ -36,10 +45,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Node.js app deployed successfully'
+            echo '✅ Docker deployment successful'
         }
         failure {
-            echo '❌ Build failed'
+            echo '❌ Docker deployment failed'
         }
     }
 }
